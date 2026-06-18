@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signal Finder — WiFi & Bluetooth Analyzer</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<header class="app-header">
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-icon">
+        <!-- inline SVG radar icon -->
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="14" stroke="var(--accent)" stroke-width="1.5" opacity="0.4"/>
+          <circle cx="16" cy="16" r="9"  stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>
+          <circle cx="16" cy="16" r="4"  fill="var(--accent)"/>
+          <line x1="16" y1="2" x2="16" y2="16" stroke="var(--cyan)" stroke-width="1.5"
+                class="radar-sweep"/>
+        </svg>
+      </span>
+      <span class="logo-text">Signal<span class="accent">Finder</span></span>
+    </div>
+
+    <div class="header-stats">
+      <div class="stat-pill" id="wifi-count-pill">
+        <span class="dot green"></span>
+        <span id="header-wifi-count">—</span> WiFi
+      </div>
+      <div class="stat-pill" id="bt-count-pill">
+        <span class="dot blue"></span>
+        <span id="header-bt-count">—</span> BT
+      </div>
+      <div class="stat-pill">
+        <span class="dot yellow"></span>
+        <span id="header-ip">loading…</span>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <button id="btn-start" class="btn btn-primary" onclick="startScan()">
+        <svg viewBox="0 0 16 16"><polygon points="3,2 13,8 3,14"/></svg>
+        Start Scan
+      </button>
+      <button id="btn-stop" class="btn btn-danger" onclick="stopScan()" disabled>
+        <svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="1"/></svg>
+        Stop
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════ SCAN STATUS BAR ═══════════════════ -->
+<div class="status-bar" id="status-bar">
+  <div class="status-bar-inner">
+    <div class="pulse-dot" id="pulse-dot"></div>
+    <span id="status-text">Press Start Scan to begin scanning nearby networks.</span>
+    <span class="scan-timer" id="scan-timer"></span>
+  </div>
+  <div class="status-bar-progress" id="progress-bar"></div>
+</div>
+
+<!-- ═══════════════════ MAIN GRID ═══════════════════ -->
+<main class="dashboard">
+
+  <!-- ─── WiFi Panel ─── -->
+  <section class="panel panel-wifi" id="panel-wifi">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="panel-icon wifi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12.55a11 11 0 0114.08 0"/>
+            <path d="M1.42 9a16 16 0 0121.16 0"/>
+            <path d="M8.53 16.11a6 6 0 016.95 0"/>
+            <circle cx="12" cy="20" r="1" fill="currentColor"/>
+          </svg>
+        </span>
+        WiFi Networks
+        <span class="badge" id="wifi-badge">0</span>
+      </div>
+      <div class="panel-actions">
+        <input class="search-input" id="wifi-search" placeholder="Filter networks…" oninput="filterTable('wifi')" />
+        <button class="btn btn-sm btn-outline" onclick="exportCSV('wifi')">↓ CSV</button>
+      </div>
+    </div>
+
+    <div class="table-wrapper" id="wifi-table-wrapper">
+      <div class="empty-state" id="wifi-empty">
+        <div class="empty-icon">📡</div>
+        <p>No networks found yet.<br>Press <strong>Start Scan</strong> to discover WiFi networks.</p>
+      </div>
+      <table class="data-table" id="wifi-table">
+        <thead>
+          <tr>
+            <th>SSID</th>
+            <th>Signal</th>
+            <th>RSSI</th>
+            <th>Security</th>
+            <th>Band</th>
+            <th>Ch.</th>
+            <th>Quality</th>
+          </tr>
+        </thead>
+        <tbody id="wifi-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="panel-footer">
+      <span id="wifi-scan-time">—</span>
+      <span id="wifi-adapter-status" class="adapter-status">adapter: checking…</span>
+    </div>
+  </section>
+
+  <!-- ─── Bluetooth Panel ─── -->
+  <section class="panel panel-bt" id="panel-bt">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="panel-icon bt-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6.5,6.5 17.5,17.5"/>
+            <polyline points="17.5,6.5 6.5,17.5"/>
+            <polyline points="12,3 12,21"/>
+            <polyline points="17.5,6.5 12,12 17.5,17.5"/>
+          </svg>
+        </span>
+        Bluetooth Devices
+        <span class="badge badge-bt" id="bt-badge">0</span>
+      </div>
+      <div class="panel-actions">
+        <input class="search-input" id="bt-search" placeholder="Filter devices…" oninput="filterTable('bt')" />
+        <button class="btn btn-sm btn-outline" onclick="exportCSV('bluetooth')">↓ CSV</button>
+      </div>
+    </div>
+
+    <div class="table-wrapper" id="bt-table-wrapper">
+      <div class="empty-state" id="bt-empty">
+        <div class="empty-icon">🔵</div>
+        <p>No Bluetooth devices found.<br>Press <strong>Start Scan</strong> to discover nearby devices.</p>
+      </div>
+      <table class="data-table" id="bt-table">
+        <thead>
+          <tr>
+            <th>Device Name</th>
+            <th>MAC Address</th>
+            <th>Signal</th>
+            <th>RSSI</th>
+            <th>Type</th>
+            <th>Quality</th>
+          </tr>
+        </thead>
+        <tbody id="bt-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="panel-footer">
+      <span id="bt-scan-time">—</span>
+      <span id="bt-adapter-status" class="adapter-status">adapter: checking…</span>
+    </div>
+  </section>
+
+  <!-- ─── System Info Panel ─── -->
+  <section class="panel panel-system" id="panel-system">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="panel-icon sys-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <polyline points="8,21 12,17 16,21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </span>
+        System Status
+      </div>
+    </div>
+
+    <div class="sys-grid">
+      <div class="sys-card">
+        <div class="sys-label">Local IP</div>
+        <div class="sys-value accent-text" id="sys-ip">—</div>
+      </div>
+      <div class="sys-card">
+        <div class="sys-label">Hostname</div>
+        <div class="sys-value" id="sys-hostname">—</div>
+      </div>
+      <div class="sys-card">
+        <div class="sys-label">OS</div>
+        <div class="sys-value" id="sys-os">—</div>
+      </div>
+      <div class="sys-card">
+        <div class="sys-label">Last Updated</div>
+        <div class="sys-value" id="sys-time">—</div>
+      </div>
+
+      <!-- CPU gauge -->
+      <div class="sys-card gauge-card">
+        <div class="sys-label">CPU</div>
+        <div class="gauge-wrap">
+          <div class="gauge-bar">
+            <div class="gauge-fill cpu-fill" id="cpu-fill"></div>
+          </div>
+          <span class="gauge-val" id="cpu-val">0%</span>
+        </div>
+      </div>
+
+      <!-- RAM gauge -->
+      <div class="sys-card gauge-card">
+        <div class="sys-label">RAM</div>
+        <div class="gauge-wrap">
+          <div class="gauge-bar">
+            <div class="gauge-fill ram-fill" id="ram-fill"></div>
+          </div>
+          <span class="gauge-val" id="ram-val">0%</span>
+        </div>
+      </div>
+
+      <!-- Network I/O -->
+      <div class="sys-card span-2">
+        <div class="sys-label">Network I/O</div>
+        <div class="net-io">
+          <span>↑ <span id="net-sent">0</span> MB sent</span>
+          <span>↓ <span id="net-recv">0</span> MB received</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Charts Panel ─── -->
+  <section class="panel panel-charts" id="panel-charts">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="panel-icon chart-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </span>
+        Signal History
+      </div>
+      <div class="chart-tabs">
+        <button class="tab-btn active" onclick="switchChart('rssi')">RSSI</button>
+        <button class="tab-btn" onclick="switchChart('count')">Count</button>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <canvas id="rssi-chart"></canvas>
+      <canvas id="count-chart" style="display:none"></canvas>
+    </div>
+  </section>
+
+</main>
+
+<!-- ═══════════════════ SCRIPTS ═══════════════════ -->
+<script src="/static/charts.js"></script>
+<script src="/static/script.js"></script>
+</body>
+</html>
