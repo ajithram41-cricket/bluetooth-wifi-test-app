@@ -228,5 +228,5 @@ This project is licensed under the [MIT License](LICENSE).
 ## 👤 Author
 
 **Ajithram**
-- GitHub: [@your-username](https://github.com/your-username)
+- GitHub: [@ajithram41-cricket]((https://github.com/ajithram41-cricket))
 - Built with Python, Flask, and ☕
